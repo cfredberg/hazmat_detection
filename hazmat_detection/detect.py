@@ -46,14 +46,10 @@ class HazmatDetectNode(Node):
 
         self.available_warnings = [
             "fuel oil",
-            "explosives",
+            "explosive",
             "poison",
             "oxidizer",
             "corrosive",
-            "combustible",
-            "oxygen",
-            "radioactive",
-            "flammable",
             "blasting agent",
             "non-flammable gas",
             "inhalation hazard",
@@ -61,7 +57,7 @@ class HazmatDetectNode(Node):
             "flammable liquid",
             "flammable solid",
             "spontaneously combustible",
-            "dangerous",
+            "dangerous when wet",
             "organic peroxide",
             "flammable gas",
         ]
@@ -74,45 +70,53 @@ class HazmatDetectNode(Node):
 
     def listener_callback(self, frame_msg):
         # Get frames and display them
-        frame = self.bridge.imgmsg_to_cv2(frame_msg, "bgr8")
-
-        text = self.reader.readtext(frame)
-        text_copy = text
-        text = []
-
+        frame_og = self.bridge.imgmsg_to_cv2(frame_msg, "bgr8")
         detected_text = []
+        for i in range(-90, 90, 10):
+            # Get the rotation matrix
+            rotation_matrix = cv2.getRotationMatrix2D((frame_og.shape[1]/2, frame_og.shape[0]/2), i, 1.0)
+            
+            # Perform the rotation
+            frame = cv2.warpAffine(frame_og, rotation_matrix, (frame_og.shape[1], frame_og.shape[0]))
 
-        for detect in text_copy:
-            try:
-                float(detect[1])
-            except ValueError as e:
-                text.append(detect)
+            text = self.reader.readtext(frame)
+            text_copy = text
+            text = []
 
-        text.sort(key = lambda x: x[0][0][1])
+            for detect in text_copy:
+                try:
+                    float(detect[1])
+                except ValueError as e:
+                    text.append(detect)
 
-        for detect in text:
-            print(detect[1] + " " + str(detect[2] * 100 // 1) + "%")
-            if detect[2] > self.levenshtein_min_confidence:
-                detect = self.find_surrounding_labels(detect, text)
-                dist = 100
-                real_text = ""
-                for warning in self.available_warnings:
-                    new_dist = distance(detect[1].lower(), warning)
-                    print(f"distance from {detect[1].lower()} to {warning} is {new_dist}")
-                    if new_dist < dist:
-                        dist = new_dist
-                        real_text = warning
-                if real_text != "" and dist <= self.levenshtein_max_dist:
-                    cv2.rectangle(frame, (int(detect[0][0][0]), int(detect[0][0][1])), (int(detect[0][2][0]), int(detect[0][2][1])), (255, 0, 0), 2)
-                    print(f"Found: {real_text}")
-                    detected_text.append(real_text)
+            text.sort(key = lambda x: x[0][0][1])
 
+            for detect in text:
+                print(detect[1] + " " + str(detect[2] * 100 // 1) + "%")
+                if detect[2] > self.levenshtein_min_confidence:
+                    detect = self.find_surrounding_labels(detect, text)
+                    dist = 100
+                    real_text = ""
+                    for warning in self.available_warnings:
+                        new_dist = distance(detect[1].lower(), warning)
+                        print(f"distance from {detect[1].lower()} to {warning} is {new_dist}")
+                        if new_dist < dist:
+                            dist = new_dist
+                            real_text = warning
+                    if real_text != "" and dist <= self.levenshtein_max_dist:
+                        cv2.rectangle(frame, (int(detect[0][0][0]), int(detect[0][0][1])), (int(detect[0][2][0]), int(detect[0][2][1])), (255, 0, 0), 2)
+                        print(f"Found: {real_text}")
+                        if real_text not in detected_text:
+                            detected_text.append(real_text)
+            
+            new_frame_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
+            self.hazmat_publisher.publish(new_frame_msg)
+            print("-"*10)
             # cv2.rectangle(frame, (int(detect[0][0][0]), int(detect[0][0][1])), (int(detect[0][2][0]), int(detect[0][2][1])), (255, 0, 0), 2)
             # print(f"Found: {detect[1]} with {int(detect[2]*100)}% confidence")
 
-        print("-"*10)
-        new_frame_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
-        self.hazmat_publisher.publish(new_frame_msg)
+        
+        
 
         str_msg = String()
         str_msg.data = str(detected_text)
