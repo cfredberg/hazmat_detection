@@ -5,7 +5,10 @@ package_name = 'hazmat_detection'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=["hazmat_detection", "hazmat_detection/HazmatAnalyzer", "hazmat_detection/HazmatAnalyzer/src/detection", "hazmat_detection/HazmatAnalyzer/models"],
+    package_data={
+        "hazmat_detection/HazmatAnalyzer/models": ["*.pt", "*.onnx"]
+    },
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -24,7 +27,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'run_hazmat = hazmat_detection.detect:main'
+            'run_hazmat = hazmat_detection.detect:main',
+            'run_better_hazmat = hazmat_detection.better_detect:main'
         ],
     },
 )

@@ -3,10 +3,11 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 from std_msgs.msg import Float32
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
+
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 from ultralytics import YOLO
-
 
 from cv_bridge import CvBridge
 
@@ -24,11 +25,16 @@ class HazmatDetect(Node):
         else:
             self.camera_id = 0
 
+        qos = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.BEST_EFFORT
+        )
+
         self.camera_subscription = self.create_subscription(
-            Image,
+            CompressedImage,
             f'/cameras/raw/camera_{self.camera_id}',
             self.listener_callback,
-            1)
+            qos)
 
         self.threshold_sub = self.create_subscription(
             Float32,
@@ -40,19 +46,22 @@ class HazmatDetect(Node):
 
         self.bridge = CvBridge()
 
-        self.model = YOLO("/home/ros/ros2_ws/src/hazmat_detection/hazmat_model.pt")
+        self.model = YOLO("/home/ros/ros2_ws/src/hazmat_detection/best.pt")
 
-        self.hazmat_frame_publisher = self.create_publisher(Image, f'/cameras/hazmat/camera_{self.camera_id}', 1)
+        self.hazmat_frame_publisher = self.create_publisher(CompressedImage, f'/cameras/hazmat/camera_{self.camera_id}', qos)
         self.hazmat_string_publisher = self.create_publisher(String, f'/hazmat/string/camera_{self.camera_id}', 1)
 
     def listener_callback(self, frame_msg):
-        frame = self.bridge.imgmsg_to_cv2(frame_msg, "bgr8")
+        frame = self.bridge.compressed_imgmsg_to_cv2(frame_msg, desired_encoding='bgr8')
 
-        results = self.model(source=frame, conf=self.threshold)
+        # results = self.model(source=frame, conf=self.threshold)
+        results = self.model(frame)
+
 
         annotated_frame = results[0].plot()
 
-        new_frame_msg = self.bridge.cv2_to_imgmsg(annotated_frame, "bgr8")
+        new_frame_msg = self.bridge.cv2_to_compressed_imgmsg(annotated_frame, dst_format='jpg')
+        new_frame_msg.header.stamp = self.get_clock().now().to_msg()
         self.hazmat_frame_publisher.publish(new_frame_msg)
 
         detected_classes = list(set([results[0].names[int(cls)] for cls in results[0].boxes.cls]))
