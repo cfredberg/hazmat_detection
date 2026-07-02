@@ -72,17 +72,21 @@ class HazmatDetect(Node):
         self.bridge = CvBridge()
 
         self.hazmat_frame_publisher = self.create_publisher(CompressedImage, f'/cameras/hazmat/camera_{self.camera_id}', qos)
-        # self.hazmat_string_publisher = self.create_publisher(String, f'/hazmat/string/camera_{self.camera_id}', 1)
+        self.hazmat_string_publisher = self.create_publisher(String, f'/hazmat/string/camera_{self.camera_id}', 1)
 
         self.detector = HazmatDetector()
         self.classifier = HazmatClassifier()
 
         self.reader = easyocr.Reader(['en'])
 
+        self.hazmat_strings = []
+
     def detect(self, frame):
         detections, elapsed = self.detector.detect(frame)
 
         # print(detections)
+
+        text_strs = []
 
         for roi_bgr, det in self.detector.crop_rois(frame, detections):
             clf_out = self.classifier.classify(roi_bgr)
@@ -147,14 +151,24 @@ class HazmatDetect(Node):
                 cv2.rectangle(frame, (det["box"][0], det["box"][1]), (det["box"][2], det["box"][3]), (255, 0, 0), 3)
                 cv2.putText(frame, f'{results["hazard_class"]}, {results["confidence"]}', (det["box"][0] + 2, det["box"][1] - 4),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1, cv2.LINE_AA)
+                
+                text_strs.append(detected_text)
             # print(results)
-        return frame
+        return frame, text_strs
 
     def listener_callback(self, frame_msg):
         frame = self.bridge.compressed_imgmsg_to_cv2(frame_msg, desired_encoding='bgr8')
 
         # results = self.model(source=frame, conf=self.threshold)
-        annotated_frame = self.detect(frame)
+        annotated_frame, text_strs = self.detect(frame)
+
+        for haz_str in text_strs:
+            if haz_str not in self.hazmat_strings:
+                self.hazmat_strings.append(haz_str)
+
+        str_msg = String()
+        str_msg.data = self.text_strs.__str__()
+        self.hazmat_string_publisher.publish(str_msg)
 
         new_frame_msg = self.bridge.cv2_to_compressed_imgmsg(annotated_frame, dst_format='jpg')
         new_frame_msg.header.stamp = self.get_clock().now().to_msg()
