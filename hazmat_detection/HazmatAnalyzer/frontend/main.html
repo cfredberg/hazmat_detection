@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HazardScan</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #070b10;
+    --panel:  #0c1219;
+    --border: #1a2535;
+    --accent: #00d4ff;
+    --text:   #dce8f0;
+    --muted:  #4a6070;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    zoom: 0.9;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--panel);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 28px; height: 28px;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--accent);
+    box-shadow: 0 0 10px rgba(0,212,255,0.25);
+  }
+
+  .brand-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.3rem; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .brand-name span { color: var(--text); }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem; letter-spacing: 2px; color: var(--muted);
+  }
+
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); transition: all 0.3s;
+  }
+  .live-dot.on { background: #00e599; box-shadow: 0 0 6px #00e599; animation: blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* WORKSPACE */
+  .workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+  }
+
+  /* CAMERA */
+  .camera-section {
+  position: relative;
+  background: #000;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.cam-box {
+  position: relative;
+  height: 42vh;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: black;
+}
+
+.cam-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+  .section-tag {
+    position: absolute; top: 14px; left: 14px; z-index: 10;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(7,11,16,0.85);
+    padding: 4px 10px;
+    border: 1px solid rgba(0,212,255,0.2); border-radius: 3px;
+    backdrop-filter: blur(4px);
+  }
+
+  #video1,
+  #video2 {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: black;
+  }
+
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+
+  .scanline {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    box-shadow: 0 0 8px var(--accent); opacity: 0;
+    animation: scanMove 4s ease-in-out infinite;
+  }
+  @keyframes scanMove { 0%{top:10%;opacity:0} 8%{opacity:0.6} 92%{opacity:0.6} 100%{top:90%;opacity:0} }
+
+  .fc { position: absolute; width: 26px; height: 26px; border-color: rgba(0,212,255,0.4); border-style: solid; }
+  .fc.tl { top:46px; left:12px; border-width:2px 0 0 2px; }
+  .fc.tr { top:46px; right:12px; border-width:2px 2px 0 0; }
+  .fc.bl { bottom:56px; left:12px; border-width:0 0 2px 2px; }
+  .fc.br { bottom:56px; right:12px; border-width:0 2px 2px 0; }
+
+  .reticle {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+    width: 70px; height: 70px;
+    border: 1.5px solid rgba(0,212,255,0.5);
+    box-shadow: 0 0 12px rgba(0,212,255,0.2) inset;
+  }
+
+  .cam-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: var(--bg);
+  }
+  .cam-placeholder svg { opacity: 0.15; }
+  .cam-placeholder p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+    letter-spacing: 1px; text-align: center; line-height: 1.8;
+  }
+
+  .cam-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 10px 14px; display: flex; gap: 8px;
+    background: linear-gradient(0deg, rgba(7,11,16,0.95), transparent);
+  }
+
+  .btn {
+    padding: 7px 16px; border-radius: 4px;
+    border: 1px solid var(--border);
+    background: rgba(12,18,25,0.9);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.18s; backdrop-filter: blur(6px);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .btn.primary:hover { background: rgba(0,212,255,0.12); box-shadow: 0 0 12px rgba(0,212,255,0.2); }
+  .btn.hidden { display: none; }
+
+  /* INFO PANEL */
+  .info-section {
+    background: var(--panel);
+    display: flex; flex-direction: column;
+    min-height: 0; overflow: hidden;
+  }
+
+  .class-hero {
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    min-height: 108px;
+    transition: background 0.4s;
+  }
+
+  .class-diamond-wrap {
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .diamond {
+    width: 64px; height: 64px;
+    transform: rotate(45deg);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.4s;
+  }
+
+  .diamond-inner { transform: rotate(-45deg); text-align: center; line-height: 1; }
+
+  .diamond-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.6rem; font-weight: 700;
+    display: block; transition: color 0.4s;
+  }
+
+  .diamond-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.4rem; letter-spacing: 1px;
+    opacity: 0.6; display: block;
+  }
+
+  .class-meta {
+    flex: 1; padding: 14px 16px;
+    display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  }
+
+  .class-number-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 2px; color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .class-name-big {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.2rem; font-weight: 700; letter-spacing: 1px;
+    color: var(--text); line-height: 1.1;
+  }
+
+  .class-subtitle { font-size: 0.72rem; color: #7a9aaa; line-height: 1.4; }
+
+  .signal-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+
+  .signal-tag {
+    padding: 2px 9px; border-radius: 3px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  }
+  .signal-tag.danger  { background: rgba(255,59,59,0.15); border: 1px solid rgba(255,59,59,0.35); color: #ff5555; }
+  .signal-tag.warning { background: rgba(255,200,0,0.12); border: 1px solid rgba(255,200,0,0.3);  color: #ffcc00; }
+
+  .info-body {
+    flex: 1; overflow-y: auto;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+
+  .empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; opacity: 0.28; text-align: center; padding: 30px;
+  }
+  .empty-glyph { font-size: 2.8rem; }
+  .empty p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem; color: var(--muted);
+    letter-spacing: 1px; line-height: 1.8;
+  }
+
+  .info-block {
+    border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    animation: fadeUp 0.3s ease-out both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .block-head {
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.025);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.56rem; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .block-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+
+  .row { display: flex; gap: 10px; align-items: flex-start; }
+  .row-val { font-size: 0.78rem; color: var(--text); line-height: 1.5; }
+
+  .bullet-list { display: flex; flex-direction: column; gap: 5px; }
+
+  .bullet-item {
+    font-size: 0.76rem; color: var(--text); line-height: 1.45;
+    padding-left: 14px; position: relative;
+  }
+  .bullet-item::before { content: '▸'; position: absolute; left: 0; font-size: 0.6rem; top: 2px; color: var(--muted); }
+  .bullet-item.h-stmt::before { color: #cc5555; }
+  .bullet-item.p-stmt::before { color: #4488bb; }
+  .bullet-item.r-stmt::before { color: #ee9944; }
+
+  .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag {
+    padding: 3px 9px;
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem; color: var(--muted);
+  }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    padding: 3px 9px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); border-radius: 10px;
+    font-size: 0.7rem; color: #8aacbc;
+  }
+
+  footer {
+    height: 34px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 22px; gap: 20px; flex-shrink: 0;
+  }
+  .foot {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.57rem; color: var(--muted); letter-spacing: 1px;
+  }
+  .foot::before { content: '// '; color: var(--border); }
+
+  @media (max-width: 680px) {
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 42% 58%;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .camera-section { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">◈</div>
+    <div class="brand-name">Hazard<span>Scan</span></div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot" id="liveDot"></div>
+    <span id="liveText">OFFLINE</span>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT: CAMERA -->
+  <div class="camera-section">
+
+  <!-- CAMERA 1 -->
+  <div class="cam-box">
+
+    <div class="section-tag">// LAPTOP CAMERA</div>
+
+    <video id="video1" autoplay playsinline muted></video>
+
+    <div class="overlay">
+      <div class="scanline"></div>
+    </div>
+
+  </div>
+
+  <!-- CAMERA 2 -->
+  <div class="cam-box">
+
+    <div class="section-tag">// CCTV CAMERA</div>
+
+    <video id="video2" autoplay playsinline muted></video>
+
+    <div class="overlay">
+      <div class="scanline"></div>
+    </div>
+
+  </div>
+
+  <div class="cam-bar">
+    <button class="btn primary" onclick="startCameras()">Enable Cameras</button>
+    <button class="btn" onclick="stopCameras()">Stop</button>
+  </div>
+
+</div>
+
+  <!-- RIGHT: INFO -->
+  <div class="info-section">
+
+    <div class="class-hero" id="classHero">
+      <div class="class-diamond-wrap">
+        <div class="diamond" id="diamond">
+          <div class="diamond-inner">
+            <span class="diamond-num" id="diamondNum">—</span>
+            <span class="diamond-label">CLASS</span>
+          </div>
+        </div>
+      </div>
+      <div class="class-meta">
+        <div class="class-number-tag" id="classTag">// AWAITING DETECTION</div>
+        <div class="class-name-big" id="className">No Hazard Detected</div>
+        <div class="class-subtitle" id="classSub">Point camera at a GHS diamond placard</div>
+        <div class="signal-row" id="signalRow" style="display:none">
+          <span class="signal-tag" id="signalTag"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-body" id="infoBody">
+      <div class="empty">
+        <div class="empty-glyph">◇</div>
+        <p>Detection output will<br>appear here once a<br>placard is identified.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <span class="foot">GHS Placards Classes 1–9</span>
+  <span class="foot">UN Model Regulations</span>
+  <span class="foot" id="footRes">—</span>
+</footer>
+
+<script>
+  // ── Camera ──────────────────────────────────────────────
+  let stream1 = null;
+  let stream2 = null;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  let detectionLoop = null;
+  let detecting = false;
+  
+  
+async function startCameras() {
+
+  try {
+
+    // Ask permission FIRST
+    await navigator.mediaDevices.getUserMedia({ video: true });
+
+    // Get all video devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+
+    const cams = devices.filter(d => d.kind === 'videoinput');
+
+    console.log(cams);
+
+    // Find laptop camera
+    const laptopCam = cams.find(c =>
+      c.label.includes("HP TrueVision")
+    );
+
+    // Find USB camera
+    const usbCam = cams.find(c =>
+      c.label.includes("USB")
+    );
+
+    console.log('Laptop Cam:', laptopCam);
+    console.log('USB Cam:', usbCam);
+
+    // ─────────────────────────────────────
+    // Laptop Camera
+    // ─────────────────────────────────────
+    if (laptopCam) {
+
+      stream1 = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: {
+            exact: laptopCam.deviceId
+          },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+
+      document.getElementById('video1').srcObject = stream1;
+    }
+
+    // ─────────────────────────────────────
+    // USB Camera
+    // ─────────────────────────────────────
+    if (usbCam) {
+
+      stream2 = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: {
+            exact: usbCam.deviceId
+          },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+
+      document.getElementById('video2').srcObject = stream2;
+    }
+
+    setLive(true);
+
+    // Start ML detection loop
+    detectionLoop = setInterval(() => {
+
+      detectHazardFromVideo('video1');
+      detectHazardFromVideo('video2');
+
+    }, 1500);
+
+  } catch(err) {
+
+    console.error(err);
+    alert(err.message);
+
+  }
+}
+
+
+function stopCameras() {
+
+  if (stream1) {
+    stream1.getTracks().forEach(t => t.stop());
+  }
+
+  if (stream2) {
+    stream2.getTracks().forEach(t => t.stop());
+  }
+
+  clearInterval(detectionLoop);
+
+  setLive(false);
+}
+async function detectHazardFromVideo(videoId) {
+
+  const video = document.getElementById(videoId);
+
+  if (!video || !video.videoWidth) return;
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+
+  canvas.toBlob(async (blob) => {
+
+    const formData = new FormData();
+    formData.append('image', blob, 'frame.jpg');
+
+    try {
+
+      const response = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      console.log(videoId, data);
+
+      if (data.detected && data.class) {
+
+        displayClass(data.class);
+
+      }
+
+    } catch(err) {
+
+      console.error(err);
+
+    }
+
+  }, 'image/jpeg', 0.8);
+} 
+
+  function setLive(on) {
+    document.getElementById('liveDot').className = 'live-dot' + (on ? ' on' : '');
+    document.getElementById('liveText').textContent = on ? 'LIVE' : 'OFFLINE';
+  }
+
+  // ── GHS Class Database ──────────────────────────────────
+  const GHS = {
+    1: {
+      name: 'Explosives',
+      color: '#ff4444',
+      signal: 'DANGER',
+      description: 'Substances or mixtures capable of rapid chemical reaction producing gas at temperatures, pressures and speeds that cause damage to surroundings.',
+      divisions: ['1.1 — Mass explosion hazard', '1.2 — Projection hazard', '1.3 — Fire, blast or projection hazard', '1.4 — Minor explosion hazard', '1.5 — Very insensitive; mass explosion hazard', '1.6 — Extremely insensitive; no mass explosion hazard'],
+      hazards: ['H200 — Unstable explosive', 'H201 — Explosive; mass explosion hazard', 'H202 — Explosive; severe projection hazard', 'H203 — Explosive; fire, blast or projection hazard', 'H204 — Fire or projection hazard'],
+      precautions: ['P210 — Keep away from heat, sparks and open flames', 'P230 — Keep wetted with appropriate material', 'P250 — Do not subject to grinding or friction', 'P370+P380 — In case of fire: evacuate the area immediately'],
+      response: ['Evacuate the area immediately — do not approach', 'Do NOT fight fire — serious risk of detonation', 'Call bomb disposal / emergency services immediately', 'Establish exclusion zone; keep public well clear'],
+      ppe: ['Blast-resistant shield', 'Anti-static clothing', 'Full face shield', 'Ear protection'],
+      examples: ['Dynamite', 'TNT', 'Fireworks', 'Ammunition', 'Airbag inflators', 'Mining blasting agents'],
+      storage: 'Licensed explosives magazine only. Cool, dry conditions. Strict access control. Comply with all local explosives regulations.',
+    },
+    2: {
+      name: 'Gases',
+      color: '#22aaee',
+      signal: 'WARNING',
+      description: 'Substances gaseous at 20 °C / 101.3 kPa, or with vapour pressure > 300 kPa at 50 °C. Divided into flammable, non-flammable and toxic gases.',
+      divisions: ['2.1 — Flammable gas', '2.2 — Non-flammable, non-toxic gas', '2.3 — Toxic gas'],
+      hazards: ['H220 — Extremely flammable gas', 'H221 — Flammable gas', 'H280 — Contains gas under pressure; may explode if heated', 'H281 — Contains refrigerated gas; may cause cryogenic burns', 'H331 — Toxic if inhaled'],
+      precautions: ['P210 — Keep away from heat and open flames (Div 2.1)', 'P260 — Do not breathe gas/vapour (Div 2.3)', 'P271 — Use only outdoors or in well-ventilated area', 'P410+P403 — Protect from sunlight; store in ventilated place'],
+      response: ['Move to fresh air immediately if inhaled', 'Remove all ignition sources (flammable gas)', 'Shut off leak if safe; do not approach if toxic', 'Evacuate if large release — asphyxiation or fire risk'],
+      ppe: ['SCBA (self-contained breathing apparatus)', 'Oxygen / gas monitor', 'Flame-resistant clothing (Div 2.1)', 'Cryogenic gloves (if liquefied gas)'],
+      examples: ['LPG / Propane', 'Acetylene', 'Chlorine (Div 2.3)', 'Oxygen cylinders', 'Compressed nitrogen', 'Helium', 'Hydrogen'],
+      storage: 'Secure cylinders upright. Ventilated area. Separate flammable from oxidising gases. Away from heat sources.',
+    },
+    3: {
+      name: 'Flammable Liquids',
+      color: '#ff7722',
+      signal: 'DANGER',
+      description: 'Liquids with a flash point ≤ 60 °C. They ignite easily and burn rapidly; their vapours can travel to distant ignition sources and flash back.',
+      divisions: ['Packing Group I — Flash point < 23 °C; initial boiling point ≤ 35 °C', 'Packing Group II — Flash point < 23 °C; initial boiling point > 35 °C', 'Packing Group III — Flash point 23–60 °C'],
+      hazards: ['H224 — Extremely flammable liquid and vapour', 'H225 — Highly flammable liquid and vapour', 'H226 — Flammable liquid and vapour', 'H304 — May be fatal if swallowed and enters airways'],
+      precautions: ['P210 — Keep away from heat, sparks and open flames', 'P233 — Keep container tightly closed', 'P240 — Ground and bond container and receiving equipment', 'P370+P378 — Use CO₂, foam or dry chemical to fight fire'],
+      response: ['Eliminate all ignition sources', 'Fight fire with CO₂, foam or dry powder — NOT water jet', 'Contain spill with absorbent material; prevent drain entry', 'Ventilate enclosed spaces — vapours are heavier than air'],
+      ppe: ['Chemical-resistant gloves (nitrile)', 'Safety goggles / face shield', 'Anti-static footwear', 'Flame-resistant lab coat'],
+      examples: ['Petrol / Gasoline', 'Acetone', 'Ethanol', 'Paint thinners', 'Diesel', 'Methanol', 'Isopropanol'],
+      storage: 'Flammable liquid safety cabinet. Grounded containers. Away from ignition sources. Limit on-site quantities.',
+    },
+    4: {
+      name: 'Flammable Solids',
+      color: '#ff4400',
+      signal: 'DANGER',
+      description: 'Solids that are easily ignited by brief contact with an ignition source. Also includes spontaneously combustible materials and substances that emit flammable gas on contact with water.',
+      divisions: ['4.1 — Flammable solid (red/white stripes)', '4.2 — Spontaneously combustible', '4.3 — Dangerous when wet (emits flammable gas)'],
+      hazards: ['H228 — Flammable solid', 'H229 — Pressurised container; may burst if heated', 'H232 — May ignite spontaneously if exposed to air', 'H260 — In contact with water releases flammable gases which may ignite spontaneously'],
+      precautions: ['P210 — Keep away from heat and open flames', 'P222 — Do not allow contact with air (Div 4.2)', 'P223 — Do not allow contact with water (Div 4.3)', 'P370+P378 — Use dry sand or dry powder; do NOT use water'],
+      response: ['Do NOT use water on Div 4.2 or 4.3 materials', 'Use dry sand, dry powder or smothering agent', 'For Div 4.3: keep completely dry at all times', 'Evacuate downwind in case of large fire'],
+      ppe: ['Dry chemical-resistant gloves', 'Full face shield', 'Fire-resistant clothing', 'Dust mask / respirator (if dusty)'],
+      examples: ['Matches', 'Magnesium metal (4.1)', 'Sodium metal (4.2)', 'White phosphorus (4.2)', 'Calcium carbide (4.3)', 'Charcoal'],
+      storage: 'Protect Div 4.3 from all moisture sources. Inert atmosphere for Div 4.2. Cool, dry, well-ventilated. Away from oxidisers.',
+    },
+    5: {
+      name: 'Oxidising Substances',
+      color: '#ffdd00',
+      signal: 'DANGER',
+      description: 'Substances that yield oxygen and can cause or intensify fire in other materials, even without an external air supply. Organic peroxides are thermally unstable.',
+      divisions: ['5.1 — Oxidising substance', '5.2 — Organic peroxide'],
+      hazards: ['H270 — May cause or intensify fire; oxidiser', 'H271 — May cause fire or explosion; strong oxidiser', 'H272 — May intensify fire; oxidiser', 'H241 — Heating may cause fire or explosion (Div 5.2)'],
+      precautions: ['P210 — Keep away from heat and combustible materials', 'P220 — Keep away from clothing and combustible materials', 'P221 — Take precautionary measures against mixing with combustibles', 'P370+P378 — Do not use combustible materials in surroundings of fire'],
+      response: ['Remove all combustible materials from vicinity', 'Use large quantities of water to cool and fight fire', 'Do not contaminate with combustible or organic material', 'Contain spill; do not mix with other substances'],
+      ppe: ['Chemical splash goggles', 'Full face shield', 'Chemical-resistant gloves (not leather)', 'Lab coat or apron — no combustible materials'],
+      examples: ['Hydrogen peroxide', 'Sodium nitrate', 'Potassium permanganate', 'Pool chlorine (calcium hypochlorite)', 'Ammonium nitrate', 'Sodium perchlorate'],
+      storage: 'Segregate from flammables and combustibles. Cool, dry, ventilated area. Keep containers tightly closed.',
+    },
+    6: {
+      name: 'Toxic Substances',
+      color: '#229933',
+      signal: 'DANGER',
+      description: 'Substances liable to cause death or serious injury to human health if swallowed, inhaled or absorbed through skin. Division 6.2 covers infectious biological substances.',
+      divisions: ['6.1 — Toxic substance', '6.2 — Infectious substance (biohazard)'],
+      hazards: ['H300 — Fatal if swallowed', 'H310 — Fatal in contact with skin', 'H330 — Fatal if inhaled', 'H370 — Causes damage to organs', 'H373 — May cause damage to organs through prolonged exposure'],
+      precautions: ['P260 — Do not breathe vapours, dust or aerosols', 'P264 — Wash hands thoroughly after handling', 'P270 — Do not eat, drink or smoke when using', 'P284 — Wear respiratory protection if ventilation is inadequate'],
+      response: ['Call Poison Control / emergency services immediately', 'Skin contact: remove clothing; flush with water 15–20 min', 'Eye contact: rinse with water 15 min; seek urgent medical care', 'Inhalation: move to fresh air; give artificial respiration if needed', 'Ingestion: do NOT induce vomiting; rinse mouth; seek medical care'],
+      ppe: ['Full-face respirator with appropriate filter', 'Chemical-resistant suit (Div 6.1)', 'Double gloves', 'Biosafety cabinet use required (Div 6.2)'],
+      examples: ['Pesticides', 'Cyanide compounds (6.1)', 'Mercury compounds (6.1)', 'Clinical waste (6.2)', 'Biological samples (6.2)', 'Carbon monoxide gas'],
+      storage: 'Locked, ventilated area. Restricted access — authorised personnel only. Segregated from food and feed products.',
+    },
+    7: {
+      name: 'Radioactive Material',
+      color: '#ffaa00',
+      signal: 'DANGER',
+      description: 'Material containing radionuclides where activity concentration and total activity exceed defined limits. Can cause radiation exposure leading to acute injury or long-term health effects.',
+      divisions: ['Category I — White label (surface dose rate ≤ 0.005 mSv/h)', 'Category II — Yellow label (surface ≤ 0.5 mSv/h)', 'Category III — Yellow label (surface > 0.5 mSv/h, or transport index > 10)'],
+      hazards: ['Ionising radiation — alpha, beta, gamma, neutron', 'Acute radiation syndrome at high doses', 'Increased long-term cancer risk', 'Potential genetic effects'],
+      precautions: ['Minimise TIME near source', 'Maximise DISTANCE from source', 'Use appropriate SHIELDING (lead, concrete, water)', 'Monitor exposure continuously with dosimeter'],
+      response: ['Do not approach without proper radiation protection equipment', 'Notify Radiation Safety Officer / Radiological Emergency Response immediately', 'Evacuate and establish exclusion zone', 'Contact national nuclear / radiological emergency authority'],
+      ppe: ['Lead apron or full-body lead suit', 'Personal dosimeter (TLD / film badge)', 'Thyroid shield', 'Respirator (if inhalation risk of particles)'],
+      examples: ['Medical isotopes (Tc-99m, I-131)', 'Industrial radiography sources (Ir-192)', 'Uranium compounds', 'Smoke detectors (Am-241 — very low activity)', 'Nuclear fuel assemblies'],
+      storage: 'Licensed, shielded storage facility only. ALARA principle. Regulatory authority approval required. Strict access controls.',
+    },
+    8: {
+      name: 'Corrosive Substances',
+      color: '#3399ff',
+      signal: 'DANGER',
+      description: 'Substances that by chemical action cause severe damage to living tissue on contact, or materially damage or destroy other goods or the means of transport.',
+      divisions: ['Acids (pH ≤ 2)', 'Alkalis / Bases (pH ≥ 11.5)', 'Other corrosives'],
+      hazards: ['H290 — May be corrosive to metals', 'H314 — Causes severe skin burns and eye damage', 'H318 — Causes serious eye damage', 'H335 — May cause respiratory irritation'],
+      precautions: ['P234 — Keep only in original container', 'P260 — Do not breathe vapours or mist', 'P280 — Wear protective gloves, clothing and eye/face protection', 'P301+P330+P331 — If swallowed: rinse mouth; do NOT induce vomiting'],
+      response: ['Flush affected skin/eyes with water for at least 15–20 minutes', 'Remove and isolate contaminated clothing immediately', 'Seek immediate medical attention — do not delay', 'Contain spill; neutralise: acid spill → soda ash; base spill → citric acid'],
+      ppe: ['Acid/alkali-resistant gloves (butyl rubber)', 'Full face shield', 'Chemical-resistant apron or suit', 'Safety boots'],
+      examples: ['Sulphuric acid (H₂SO₄)', 'Hydrochloric acid (HCl)', 'Sodium hydroxide (NaOH)', 'Battery acid', 'Bleach solution', 'Ammonia solution'],
+      storage: 'Store acids and alkalis separately. Secondary containment / bund. Ventilated, corrosion-resistant area. Keep away from reactive metals.',
+    },
+    9: {
+      name: 'Miscellaneous Hazardous',
+      color: '#9966ff',
+      signal: 'WARNING',
+      description: 'Substances and articles presenting a hazard during transport not covered by Classes 1–8. Includes environmentally hazardous substances, elevated temperature materials and lithium batteries.',
+      divisions: ['Environmentally hazardous substances (aquatic)', 'Elevated temperature materials (> 100 °C liquid, > 240 °C solid)', 'Magnetised materials', 'Aviation-regulated substances (lithium batteries, dry ice)'],
+      hazards: ['H400 — Very toxic to aquatic life', 'H410 — Very toxic to aquatic life with long lasting effects', 'H413 — May cause long lasting harmful effects to aquatic life', 'Thermal burn hazard (elevated temperature materials)'],
+      precautions: ['P273 — Avoid release to the environment', 'P391 — Collect spillage', 'P501 — Dispose of contents and container per regulations', 'Follow substance-specific SDS requirements'],
+      response: ['Prevent entry into waterways, drains and soil', 'Contain spill with absorbent material; collect for disposal', 'Report any environmental release to regulatory authority', 'Refer to specific Safety Data Sheet for substance response'],
+      ppe: ['Dependent on specific substance — consult SDS', 'General minimum: chemical-resistant gloves, goggles, lab coat'],
+      examples: ['Lithium batteries (Li-ion, Li-metal)', 'Dry ice (solid CO₂)', 'Asbestos-containing material', 'Environmentally hazardous liquids', 'Magnetised material', 'Elevated temperature liquids > 100 °C'],
+      storage: 'Varies by substance. Always keep away from waterways and drainage. Consult individual SDS for specific requirements.',
+    },
+  };
+
+  // ── Main display function ────────────────────────────────
+  // Your model calls: displayClass(classNumber)   e.g. displayClass(4)
+  // Optionally:       displayClass(4, "4.2 — Spontaneously combustible")
+  function displayClass(classNum, detectedDivision) {
+    const d = GHS[classNum];
+    if (!d) return;
+    const c = d.color;
+
+    // Diamond
+    const diam = document.getElementById('diamond');
+    diam.style.borderColor = c;
+    diam.style.background = c + '1a';
+    diam.style.boxShadow = `0 0 22px ${c}33, 0 0 8px ${c}22 inset`;
+    document.getElementById('diamondNum').textContent = classNum;
+    document.getElementById('diamondNum').style.color = c;
+
+    // Hero
+    document.getElementById('classHero').style.background = c + '09';
+    document.getElementById('classTag').textContent = `// CLASS ${classNum} DETECTED`;
+    document.getElementById('classTag').style.color = c;
+    document.getElementById('className').textContent = d.name;
+    document.getElementById('classSub').textContent = detectedDivision || d.description.slice(0, 80) + '…';
+
+    const sigRow = document.getElementById('signalRow');
+    const sigTag = document.getElementById('signalTag');
+    sigRow.style.display = 'flex';
+    sigTag.textContent = d.signal;
+    sigTag.className = 'signal-tag ' + (d.signal === 'DANGER' ? 'danger' : 'warning');
+
+    // Body
+    const body = document.getElementById('infoBody');
+    body.innerHTML = '';
+
+    blk(body, '📋', 'Description', `<div class="row"><span class="row-val">${d.description}</span></div>`, 0);
+
+    blk(body, '◈', 'Divisions & Sub-Classes',
+      `<div class="bullet-list">${d.divisions.map(x => `<div class="bullet-item">${x}</div>`).join('')}</div>`, 1);
+
+    blk(body, '⚠', 'Hazard Statements (H-codes)',
+      `<div class="bullet-list">${d.hazards.map(x => `<div class="bullet-item h-stmt">${x}</div>`).join('')}</div>`, 2);
+
+    blk(body, '🛡', 'Precautionary Measures (P-codes)',
+      `<div class="bullet-list">${d.precautions.map(x => `<div class="bullet-item p-stmt">${x}</div>`).join('')}</div>`, 3);
+
+    blk(body, '🚨', 'Emergency Response',
+      `<div class="bullet-list">${d.response.map(x => `<div class="bullet-item r-stmt">${x}</div>`).join('')}</div>`, 4);
+
+    blk(body, '🥽', 'Required PPE',
+      `<div class="tag-row">${d.ppe.map(p => `<span class="tag">${p}</span>`).join('')}</div>`, 5);
+
+    blk(body, '🏭', 'Storage Requirements',
+      `<div class="row"><span class="row-val">${d.storage}</span></div>`, 6);
+
+    blk(body, '🧪', 'Common Examples of This Class',
+      `<div class="chip-row">${d.examples.map(e => `<span class="chip">${e}</span>`).join('')}</div>`, 7);
+  }
+
+  function blk(parent, icon, title, html, delay) {
+    const el = document.createElement('div');
+    el.className = 'info-block';
+    el.style.animationDelay = (delay * 0.07) + 's';
+    el.innerHTML = `<div class="block-head"><span>${icon}</span>${title}</div><div class="block-body">${html}</div>`;
+    parent.appendChild(el);
+  }
+
+  // Keyboard demo: press 1–9 to preview any class
+  document.addEventListener('keydown', e => {
+    const n = parseInt(e.key);
+    if (n >= 1 && n <= 9) displayClass(n);
+  });
+</script>
+
+</body>
+</html>
