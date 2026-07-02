@@ -5,7 +5,7 @@ package_name = 'hazmat_detection'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=["hazmat_detection", "hazmat_detection/HazmatAnalyzer", "hazmat_detection/HazmatAnalyzer/src/detection", "hazmat_detection/HazmatAnalyzer/models"],
+    packages=["hazmat_detection", "hazmat_detection/HazmatAnalyzer", "hazmat_detection/HazmatAnalyzer/src/detection", "hazmat_detection/HazmatAnalyzer/src/classification", "hazmat_detection/HazmatAnalyzer/configs", "hazmat_detection/HazmatAnalyzer/models"],
     package_data={
         "hazmat_detection/HazmatAnalyzer/models": ["*.pt", "*.onnx"]
     },
