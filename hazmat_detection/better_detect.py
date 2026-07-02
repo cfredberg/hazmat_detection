@@ -81,6 +81,8 @@ class HazmatDetect(Node):
 
         self.hazmat_strings = []
 
+        self.last_detect = ""
+
     def detect(self, frame):
         detections, elapsed = self.detector.detect(frame)
 
@@ -143,16 +145,18 @@ class HazmatDetect(Node):
                     if scores[final_class] > 0.97:
                         print(f"final: {final_class} conf: {scores[final_class]}")
                         detected_text = final_class
-                else:
+                elif results["hazard_class"] != "":
                     detected_text = results["hazard_class"]
                 
             if detected_text != None:
-                results["hazard_class"] = detected_text
-                cv2.rectangle(frame, (det["box"][0], det["box"][1]), (det["box"][2], det["box"][3]), (255, 0, 0), 3)
-                cv2.putText(frame, f'{results["hazard_class"]}, {results["confidence"]}', (det["box"][0] + 2, det["box"][1] - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1, cv2.LINE_AA)
-                
-                text_strs.append(detected_text)
+                if self.last_detect == detected_text:
+                    results["hazard_class"] = detected_text
+                    cv2.rectangle(frame, (det["box"][0], det["box"][1]), (det["box"][2], det["box"][3]), (255, 0, 0), 3)
+                    cv2.putText(frame, f'{results["hazard_class"]}, {results["confidence"]}', (det["box"][0] + 2, det["box"][1] - 4),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1, cv2.LINE_AA)
+                    
+                    text_strs.append(detected_text)
+                self.last_detect = detected_text
             # print(results)
         return frame, text_strs
 
@@ -167,7 +171,7 @@ class HazmatDetect(Node):
                 self.hazmat_strings.append(haz_str)
 
         str_msg = String()
-        str_msg.data = self.text_strs.__str__()
+        str_msg.data = self.hazmat_strings.__str__()
         self.hazmat_string_publisher.publish(str_msg)
 
         new_frame_msg = self.bridge.cv2_to_compressed_imgmsg(annotated_frame, dst_format='jpg')
